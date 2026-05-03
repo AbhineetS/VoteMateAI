@@ -709,7 +709,7 @@ with st.sidebar:
     pages = ["⌂ Home", "≡ Timeline", "✦ AI Assistant", "✓ Readiness Check", "◫ Myth vs Fact"]
     
     selected = st.radio(
-        "",
+        "Navigation",
         pages,
         key="nav_selector",
         index=pages.index(st.session_state.current_page),
