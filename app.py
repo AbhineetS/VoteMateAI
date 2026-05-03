@@ -1,13 +1,26 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import google.generativeai as genai
 from streamlit_mic_recorder import mic_recorder
 import speech_recognition as sr
 import time
 from fpdf import FPDF
 import io
+from datetime import datetime
 
 if "user_question" not in st.session_state:
     st.session_state.user_question = ""
+if "rc_age" not in st.session_state:
+    st.session_state.rc_age = 18
+if "rc_reg" not in st.session_state:
+    st.session_state.rc_reg = "Registered"
+if "rc_vid" not in st.session_state:
+    st.session_state.rc_vid = "Possessed"
+if "rc_booth" not in st.session_state:
+    st.session_state.rc_booth = "Known"
+
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "⌂ Home"
 
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
@@ -19,6 +32,17 @@ def get_working_model():
     return None
 
 def get_ai_answer(user_query):
+    query_lower = user_query.lower()
+    
+    if any(kw in query_lower for kw in ["epic", "voter card", "lost card"]):
+        return "Verified Civic Guidance:\nCitizen can still vote if name exists on electoral roll and any approved alternate photo ID is carried."
+    if any(kw in query_lower for kw in ["id proof", "aadhaar", "passport", "id"]):
+        return "Verified Civic Guidance:\nAccepted alternate IDs: Aadhaar, Passport, Driving License, PAN, Government Service ID, Bank Passbook, Pension Card etc."
+    if any(kw in query_lower for kw in ["evm", "hack", "security"]):
+        return "Verified Civic Guidance:\nIndian EVMs are standalone non-networked air-gapped units with no WiFi/Bluetooth/internet hardware and are protected by multi-layer sealing and candidate verification."
+    if any(kw in query_lower for kw in ["booth", "location", "where vote"]):
+        return "Verified Civic Guidance:\nVoter can locate booth via NVSP portal, voter helpline 1950, or booth slip lookup."
+
     fallback_msg = (
         "Verified Civic Guidance:\n\n"
         "For this election-related concern, citizens are advised to consult the Election Commission "
@@ -48,605 +72,998 @@ def get_ai_answer(user_query):
     except Exception:
         return fallback_msg
 
-st.set_page_config(page_title="VoteMate AI | Civic Assistant", page_icon="🏛️", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="VoteMate | Civic Intelligence", page_icon="🏛️", layout="wide", initial_sidebar_state="expanded")
 
-# --- CUSTOM CSS ---
+# JS Auto-opener removed. Pure CSS strict-layout applied.
+
+today_date = datetime.now().strftime("%B %d, %Y").upper()
+
+st.markdown(f"""
+<div class="custom-top-bar">
+
+<div style="display: flex; align-items: center; gap: 10px; min-width: 180px; padding: 4px 12px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; color: #059669; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.7rem; font-weight: 800; letter-spacing: 1px;">
+<div style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; animation: pulse-green 2s infinite;"></div>
+ENCRYPTED SECURE LINK
+</div>
+
+<div class="marquee-container" style="flex-grow: 1; margin: 0 2rem;">
+<div class="marquee">
+<div class="scrolling-text-content" style="color: #334155; font-family: 'Georgia', serif; font-style: italic; font-size: 1.05rem; letter-spacing: 0.5px;">
+"The ballot is stronger than the bullet." — Abraham Lincoln &nbsp;&nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp;&nbsp; "Voting is not only our right, it is our power." — Loung Ung &nbsp;&nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp;&nbsp; "There's no such thing as a vote that doesn't matter." — Barack Obama &nbsp;&nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp;&nbsp; "Nobody will ever deprive the American people of the right to vote except the American people themselves." — Franklin D. Roosevelt
+</div>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; min-width: 150px; font-family: 'Plus Jakarta Sans', monospace; font-size: 0.8rem; font-weight: 800; letter-spacing: 1px; color: #475569; justify-content: flex-end;">
+<div>{today_date}</div>
+<div style="display: flex; gap: 4px; align-items: flex-end; height: 14px; margin-left: 4px;">
+<div class="telemetry-bar" style="animation-delay: 0.1s"></div>
+<div class="telemetry-bar" style="animation-delay: 0.2s"></div>
+<div class="telemetry-bar" style="animation-delay: 0.3s"></div>
+</div>
+</div>
+
+</div>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <style>
-/* Master SaaS Civic Theme */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+#MainMenu, footer, [data-testid="stToolbar"] {
+    display: none !important;
+}
+
+[data-testid="stHeader"] {
+    background-color: transparent !important;
+    z-index: 9999998 !important;
+}
+
+[data-testid="stSidebarHeader"], 
+[data-testid="stSidebar"] button[kind="header"],
+[data-testid="collapsedControl"], 
+[data-testid="stSidebarCollapsedControl"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
 
 html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    scroll-behavior: smooth;
 }
 
-/* Global Smoothness */
 .stApp {
-    background-color: #f8f9fa;
-    color: #1e293b;
-    animation: appFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    background-color: #f8fafc !important;
+    color: #0f172a;
 }
 
-@keyframes appFadeIn {
-    0% { opacity: 0; transform: translateY(8px); }
+.custom-top-bar {
+    position: fixed; top: 0; left: 15rem; right: 0; height: 64px;
+    background: #ffffff;
+    color: #1e293b; display: flex; justify-content: space-between;
+    align-items: center; padding: 0 2rem;
+    z-index: 99999; border-bottom: 1px solid rgba(0,0,0,0.05);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.top-badge {
+    background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb;
+    padding: 4px 12px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; letter-spacing: 1px;
+}
+
+.marquee-container {
+    overflow: hidden; white-space: nowrap; width: 100%; position: relative;
+    mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+.marquee {
+    display: inline-block; animation: scroll 40s linear infinite;
+    font-size: 0.85rem; font-weight: 600; opacity: 0.85;
+}
+@keyframes scroll {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+
+.telemetry-bar {
+    width: 4px; height: 12px; background: #3b82f6; border-radius: 2px;
+    animation: pulse-blue 1.5s infinite alternate;
+}
+@keyframes equalize {
+    0% { height: 4px; }
+    100% { height: 14px; }
+}
+
+/* Use bulletproof selectors for the main block container */
+[data-testid="stAppViewBlockContainer"], 
+[data-testid="stMainBlockContainer"], 
+.block-container {
+    max-width: 1600px !important; 
+    margin-left: 0 !important; 
+    margin-right: 0 !important;
+    padding-top: 6rem !important;
+    padding-left: calc(15rem + 3rem) !important; /* 15rem sidebar + 3rem safety margin */
+    padding-right: 3rem !important;
+    padding-bottom: 4rem !important;
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(15px); }
     100% { opacity: 1; transform: translateY(0); }
 }
 
-/* Sidebar Refinement */
-[data-testid="stSidebar"] {
-    background-color: #ffffff;
-    border-right: 1px solid #e2e8f0;
-    min-width: 250px !important;
-    max-width: 250px !important;
+@keyframes pulse-blue {
+    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+@keyframes pulse-green {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+.pulse-dot-blue {
+    width: 10px; height: 10px; background: #3b82f6; border-radius: 50%;
+    animation: pulse-blue 2s infinite;
 }
 
-/* Hide Radio Circles & Style Tabs */
-[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] {
-    gap: 0.15rem;
+/* =========================================
+   TIMELINE SEQUENCE STYLES
+   ========================================= */
+.timeline-container {
+    position: relative;
+    max-width: 1000px;
+    margin: 2rem 0;
 }
-[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radio"] {
-    display: none !important;
+.timeline-line {
+    position: absolute;
+    left: 17px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #3b82f6 0%, rgba(59,130,246,0.1) 100%);
+    z-index: 0;
 }
-[data-testid="stSidebar"] [data-testid="stRadio"] label {
-    padding: 0.45rem 0.75rem !important;
-    border-radius: 6px !important;
-    margin-bottom: 0 !important;
-    transition: all 0.2s ease !important;
-    display: flex !important;
-    align-items: center !important;
+.timeline-item {
+    position: relative;
+    margin-bottom: 2rem;
+    padding-left: 3rem;
+    animation: fadeIn 0.6s ease-out forwards;
+    opacity: 0;
+}
+.timeline-dot {
+    position: absolute;
+    left: -25px;
+    top: 24px;
+    width: 14px;
+    height: 14px;
+    background: #ffffff;
+    border: 3px solid #3b82f6;
+    border-radius: 50%;
+    z-index: 2;
+    box-shadow: 0 0 10px rgba(59,130,246,0.3);
+    transition: all 0.3s ease;
+}
+.timeline-item:hover .timeline-dot {
+    transform: scale(1.3);
+    background: #3b82f6;
+    box-shadow: 0 0 15px rgba(59,130,246,0.5);
+}
+
+.custom-expander {
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid rgba(0,0,0,0.05);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+.custom-expander:hover {
+    transform: translateX(10px);
+    box-shadow: 0 10px 30px rgba(59,130,246,0.08);
+    border-color: rgba(59,130,246,0.2);
+}
+.custom-expander summary {
+    padding: 1.5rem 2rem;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    outline: none;
+    cursor: pointer;
+}
+.custom-expander summary::-webkit-details-marker {
+    display: none;
+}
+.summary-content {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+.step-num {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #3b82f6;
+    background: rgba(59,130,246,0.1);
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+}
+.step-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+.expand-icon {
+    font-size: 1.2rem;
+    color: #94a3b8;
+    transition: transform 0.3s ease;
+}
+.custom-expander[open] .expand-icon {
+    transform: rotate(180deg);
+}
+.custom-expander[open] {
+    background: #fdfdfd;
+}
+.details-content {
+    padding: 0 2rem 2rem 5.5rem;
+    color: #475569;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    animation: slideDown 0.4s ease-out;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================
+   PERMANENT INDESTRUCTIBLE SIDEBAR
+   ========================================= */
+[data-testid="stSidebar"] {
+    transform: translateX(0px) !important;
+    visibility: visible !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    width: 15rem !important;
+    min-width: 15rem !important;
+    max-width: 15rem !important;
+    display: block !important;
+    z-index: 999999 !important;
     background-color: transparent !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+@keyframes sidebar-glow {
+    0% { box-shadow: 0 8px 30px rgba(0,0,0,0.2), 0 0 0px rgba(59,130,246,0); border-color: rgba(255,255,255,0.05); }
+    100% { box-shadow: 0 12px 40px rgba(0,0,0,0.3), 0 0 20px rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.3); }
+}
+
+[data-testid="stSidebar"] > div:first-child {
+    background: linear-gradient(180deg, #0f172a 0%, #020617 100%) !important; 
+    margin: 1rem !important;
+    border-radius: 24px !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    height: calc(100vh - 2rem) !important;
+    width: calc(100% - 2rem) !important;
+    animation: sidebar-glow 4s ease-in-out infinite alternate !important;
+}
+
+/* Apply background to the main section using reliable attributes */
+[data-testid="stMain"], [data-testid="stAppViewMain"], section[tabindex="0"] {
+    background-color: #f8fafc !important;
+}
+
+[data-testid="stSidebarUserContent"] {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child { display: none !important; }
+[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] { gap: 0.2rem; }
+
+[data-testid="stSidebar"] [data-testid="stRadio"] label {
+    padding: 1rem 1.25rem !important;
+    margin: 0.25rem 0.5rem !important;
+    border-radius: 14px !important;
+    background-color: transparent !important;
+    border: 1px solid transparent !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    cursor: pointer !important;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
-    background-color: #f8f9fa !important;
+    background-color: rgba(255,255,255,0.08) !important;
+    transform: translateX(4px);
 }
-[data-testid="stSidebar"] [data-testid="stRadio"] label:has(div[aria-checked="true"]) {
-    background-color: #f1f5f9 !important;
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(div[aria-checked="true"]),
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important; 
+    box-shadow: 0 8px 24px rgba(37,99,235,0.5) !important;
+    border: 1px solid rgba(255,255,255,0.25) !important;
+    transform: translateY(-2px);
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] div[data-testid="stMarkdownContainer"] p {
-    font-size: 0.9rem !important;
-    font-weight: 500 !important;
-    color: #64748b !important;
+    font-size: 1.05rem !important; /* Larger text */
+    font-weight: 700 !important;
+    color: #cbd5e1 !important; /* Brighter non-active text */
     margin: 0 !important;
+    display: flex; align-items: center; gap: 12px;
+    transition: all 0.2s ease !important;
 }
-[data-testid="stSidebar"] [data-testid="stRadio"] label:has(div[aria-checked="true"]) div[data-testid="stMarkdownContainer"] p {
-    font-weight: 600 !important;
-    color: #0f172a !important;
-}
-
-/* Typography visibility */
-h1, h2, h3, h4, h5, h6 {
-    color: #0f172a !important;
-    font-weight: 600;
-    letter-spacing: -0.015em;
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(div[aria-checked="true"]) div[data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) div[data-testid="stMarkdownContainer"] p {
+    color: #ffffff !important;
+    font-weight: 800 !important;
 }
 
-p, li, span, div {
-    color: #475569;
+.home-hero-container {
+    position: relative;
+    padding: 0 0 1rem 0;
+    z-index: 1;
+}
+.hero-grid {
+    position: absolute; inset: -50% 0 0 0;
+    background-image: linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px; z-index: -2;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,0));
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,0));
+    pointer-events: none;
+}
+.hero-bg-blob-1 {
+    position: absolute; top: -30%; left: -10%; width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, rgba(255,255,255,0) 70%);
+    filter: blur(60px); z-index: -1; pointer-events: none;
+}
+.hero-bg-blob-2 {
+    position: absolute; top: 10%; right: -10%; width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(217,70,239,0.1) 0%, rgba(255,255,255,0) 70%);
+    filter: blur(60px); z-index: -1; pointer-events: none;
 }
 
-/* Hero Section */
-.hero-container {
-    padding: 3.5rem 2rem;
-    border-radius: 12px;
-    background: #ffffff;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.02);
-    margin-bottom: 2.5rem;
-    border: 1px solid #e2e8f0;
+.gradient-text {
+    background: linear-gradient(135deg, #2563eb 0%, #d946ef 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 200% auto;
+    animation: shine 4s linear infinite;
 }
+@keyframes shine {
+    to { background-position: 200% center; }
+}
+
 .hero-title {
-    font-size: 2.8rem;
-    font-weight: 700;
+    font-size: 6rem;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.05em;
     color: #0f172a;
-    margin-bottom: 0.75rem;
-    letter-spacing: -0.02em;
+    margin-top: -1.5rem;
+    margin-bottom: 1.75rem;
+    text-shadow: 0 10px 30px rgba(0,0,0,0.05);
 }
-.hero-subtitle {
-    font-size: 1.1rem;
-    color: #64748b;
-    font-weight: 400;
-    max-width: 750px;
-    margin: 0 auto;
+.hero-sub {
+    font-size: 1.35rem;
+    color: #475569;
     line-height: 1.6;
+    max-width: 800px;
+    margin-bottom: 2.5rem;
 }
 
-/* Custom Cards */
-.feature-card {
-    background: #ffffff;
-    padding: 1.5rem;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-    transition: all 0.25s ease;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-}
-.feature-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0,0,0,0.04);
-    border-color: #cbd5e1;
-}
-.card-icon {
-    font-size: 1.8rem;
-    margin-bottom: 1rem;
-}
-.card-title {
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 0.5rem;
-}
-.card-desc {
-    font-size: 0.9rem;
-    color: #64748b;
-    line-height: 1.5;
-}
-
-/* Metrics Styling */
-[data-testid="stMetricValue"] {
-    font-size: 1.8rem !important;
-    font-weight: 600 !important;
-    color: #3b82f6 !important;
-}
-[data-testid="stMetricLabel"] {
-    color: #64748b !important;
-    font-size: 0.85rem !important;
-    font-weight: 500 !important;
-}
-
-/* Buttons */
 .stButton > button {
-    background: #3b82f6;
-    color: white !important;
-    border: none;
-    padding: 0.4rem 1.2rem;
-    border-radius: 6px;
-    font-weight: 500;
-    font-size: 0.95rem;
-    transition: all 0.2s ease;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(0,0,0,0.1) !important;
+    padding: 1rem 2rem !important;
+    border-radius: 14px !important; 
+    font-weight: 800 !important;
+    font-size: 1.1rem !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
     width: 100%;
-    box-shadow: 0 1px 2px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
 }
 .stButton > button:hover {
-    background: #2563eb;
-    box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
-    transform: translateY(-1px);
-}
-.stButton > button:active {
-    transform: translateY(0px);
+    background: #f8fafc !important;
+    border-color: rgba(0,0,0,0.2) !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.08) !important;
+    transform: translateY(-4px);
 }
 
-/* Inputs / Textareas */
-.stTextArea textarea, .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
-    background-color: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 6px !important;
-    color: #1e293b !important;
-    font-size: 0.95rem !important;
-    padding: 0.5rem !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.01) !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
-}
-.stTextArea textarea:focus, .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox div[data-baseweb="select"]:focus-within {
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 1px #3b82f6 !important;
-}
-
-.stAlert {
-    background-color: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 8px !important;
-    color: #1e293b !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
-}
-
-/* Expander headers */
-.streamlit-expanderHeader {
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: #1e293b;
-    background-color: #ffffff !important;
-    border-radius: 0 !important;
-}
-div[data-testid="stExpander"] {
-    background-color: #ffffff !important;
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    color: #ffffff !important;
     border: none !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    margin-bottom: 0 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2) !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    box-shadow: 0 15px 35px rgba(37, 99, 235, 0.35) !important;
+    transform: translateY(-2px);
 }
 
-/* Alert text overrides */
-.stAlert p {
-    color: #475569 !important;
+.pill-button .stButton > button {
+    border-radius: 30px !important;
+    padding: 0.6rem 1.2rem !important;
+    font-size: 0.9rem !important;
 }
+
+.metric-card, .capability-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 2rem;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.02);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    height: 100%;
+}
+.shimmer {
+    position: absolute; top: 0; left: -150%; width: 50%; height: 100%;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.8), transparent);
+    transform: skewX(-20deg); animation: shimmer 4s infinite; opacity: 0.5; pointer-events: none;
+}
+@keyframes shimmer {
+    100% { left: 200%; }
+}
+.metric-card::after, .capability-card::after {
+    content: ''; position: absolute; inset: 0; border-radius: 20px; padding: 2px;
+    background: linear-gradient(135deg, rgba(59,130,246,0.6), rgba(217,70,239,0.3));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
+}
+.metric-card:hover, .capability-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 24px 48px rgba(0,0,0,0.1), 0 12px 24px rgba(0,0,0,0.05);
+}
+.metric-card:hover::after, .capability-card:hover::after { opacity: 1; }
+
+.cap-number {
+    font-size: 0.9rem; font-weight: 800; color: #64748b;
+    background: #f1f5f9; padding: 6px 14px; border-radius: 8px;
+    display: inline-block; letter-spacing: 0.05em; align-self: flex-start;
+}
+.cap-title {
+    font-size: 1.4rem; font-weight: 800; color: #0f172a;
+    margin-bottom: 0.75rem; letter-spacing: -0.02em; margin-top: 1.25rem;
+}
+.cap-desc {
+    font-size: 1.1rem; color: #475569; line-height: 1.6;
+}
+
+.stTextArea textarea, .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
+    background-color: #ffffff !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 16px !important; 
+    color: #1e293b !important;
+    font-size: 1.1rem !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: none !important;
+    outline: none !important;
+    height: 52px !important; /* Slightly taller for premium feel */
+}
+
+/* Fix for Selectbox value visibility */
+.stSelectbox div[data-baseweb="select"] * {
+    color: #1e293b !important;
+    font-weight: 500 !important;
+}
+
+/* Fix for Number Input buttons and containers */
+.stNumberInput div[data-testid="stNumberInputStepDown"], 
+.stNumberInput div[data-testid="stNumberInputStepUp"] {
+    background-color: #f8fafc !important;
+    border: none !important;
+    color: #1e293b !important;
+    border-radius: 8px !important;
+    margin: 4px !important;
+    transition: all 0.2s ease !important;
+}
+.stNumberInput div[data-testid="stNumberInputStepDown"]:hover, 
+.stNumberInput div[data-testid="stNumberInputStepUp"]:hover {
+    background-color: #e2e8f0 !important;
+}
+
+/* Aggressive reset for the input containers */
+[data-testid="stTextInput"] > div, 
+[data-testid="stTextInput"] > div > div,
+[data-testid="stTextInput"],
+[data-testid="stSelectbox"] > div,
+[data-testid="stNumberInput"] > div,
+[data-testid="stNumberInput"] {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.stTextArea textarea:focus, .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox div[data-baseweb="select"] > div:focus-within {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.08) !important;
+    background-color: #ffffff !important;
+}
+
+.stButton > button {
+    border-radius: 16px !important;
+    padding: 0.6rem 2.2rem !important;
+    font-weight: 700 !important;
+    height: 48px !important;
+    transition: all 0.2s ease !important;
+}
+
+.editorial-panel {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 24px;
+    padding: 2.5rem; 
+    margin-bottom: 2rem;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.04); 
+    transition: all 0.3s ease;
+}
+.editorial-panel:focus-within {
+    border-color: rgba(59,130,246,0.3);
+    box-shadow: 0 20px 60px rgba(59,130,246,0.08);
+}
+
+.chat-response {
+    background: linear-gradient(145deg, #f8fafc 0%, #ffffff 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    padding: 2.5rem;
+    margin-top: 2rem;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);
+    animation: fadeIn 0.6s ease-out;
+}
+.verified-badge {
+    background: #e0e7ff;
+    color: #4338ca;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+}
+
+[data-testid="stExpander"] {
+    background: #ffffff !important;
+    border: 1px solid rgba(0,0,0,0.05) !important;
+    border-radius: 16px !important;
+    margin-bottom: 1rem !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.02) !important;
+    transition: all 0.3s ease !important;
+}
+[data-testid="stExpander"]:hover {
+    border-color: rgba(0,0,0,0.1) !important;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.06) !important;
+    transform: translateY(-2px);
+}
+[data-testid="stExpander"] summary { padding: 1.5rem 1.75rem !important; }
+[data-testid="stExpander"] summary p { font-size: 1.15rem !important; font-weight: 800 !important; color: #0f172a !important; }
+[data-testid="stExpanderDetails"] > div { padding-top: 0.5rem !important; }
+
+.split-container {
+    display: flex; flex-direction: column;
+    border: 1px solid rgba(0,0,0,0.05);
+    margin-bottom: 1.5rem; background: #ffffff;
+    border-radius: 20px; box-shadow: 0 12px 32px rgba(0,0,0,0.03);
+}
+.split-top, .split-bottom { padding: 1.75rem; }
+.split-top { border-bottom: 1px solid rgba(0,0,0,0.04); }
+.split-bottom { background-color: #f8fafc; border-radius: 0 0 20px 20px; }
+
+.score-circle {
+    width: 80px; height: 80px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.75rem; font-weight: 800;
+    border: 5px solid rgba(0,0,0,0.05); margin: 0 auto 1rem auto;
+}
+.score-circle.success { color: #10b981; border-color: #10b981; }
+.score-circle.warning { color: #f59e0b; border-color: #f59e0b; }
+.score-circle.danger { color: #ef4444; border-color: #ef4444; }
+
+.compliance-bar {
+    height: 8px; background: #f1f5f9; border-radius: 4px;
+    overflow: hidden; margin-top: 1rem;
+}
+.compliance-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
 </style>
 """, unsafe_allow_html=True)
 
-
-# --- SIDEBAR ---
 with st.sidebar:
     st.markdown("""
-        <div style='text-align: left; margin-bottom: 1.5rem; padding: 0.5rem 0.5rem 0 0.5rem;'>
-            <h2 style='font-size: 1.25rem; color: #0f172a !important; font-weight: 700; margin-bottom: 0.1rem; letter-spacing: -0.02em;'>🏛️ VoteMate</h2>
-            <p style='color: #64748b; font-size: 0.8rem; margin-top: 0; font-weight: 400;'>Civic Intelligence Platform</p>
-        </div>
-    """, unsafe_allow_html=True)
+<div style='padding: 0.5rem 0.5rem 1.5rem 0.5rem;'>
+<div style='display: flex; align-items: center; gap: 14px;'>
+<div style='width: 40px; height: 40px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 1.3rem; box-shadow: 0 8px 24px rgba(37,99,235,0.5);'>V</div>
+<h2 style='font-size: 1.6rem; color: #ffffff !important; font-weight: 800; margin: 0; letter-spacing: -0.04em;'>VoteMate</h2>
+</div>
+</div>
+""", unsafe_allow_html=True)
     
-    st.markdown("<p style='font-size: 0.7rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; padding-left: 0.5rem;'>Overview</p>", unsafe_allow_html=True)
-    page = st.radio("", [
-        "🏠 Dashboard Home",
-        "📅 Election Timeline",
-        "🤖 AI Election Assistant",
-        "🧾 First Time Voter Wizard",
-        "⚖️ Myth vs Fact"
-    ], label_visibility="collapsed")
+    st.markdown("<p style='font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 0.75rem; padding-left: 0.5rem;'>Dashboard</p>", unsafe_allow_html=True)
     
-    st.markdown("<div style='margin-top: auto; padding-top: 4rem;'></div>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 0.7rem; color: #94a3b8; text-align: left; padding: 0.5rem;'>Secured by Gemini AI</p>", unsafe_allow_html=True)
-
-if "current_page" not in st.session_state:
-    st.session_state.current_page = page
-
-if st.session_state.current_page != page:
-    with st.spinner("Loading Civic Module..."):
-        time.sleep(0.3)
-    st.session_state.current_page = page
-
-# --- MAIN CONTENT ---
-if page == "🏠 Dashboard Home":
-    # Top-right Subtitle
-    st.markdown("<div style='text-align: right; color: #64748b; font-weight: 500; font-size: 0.85rem; margin-bottom: 1.5rem;'>Built for Electoral Literacy & Democratic Inclusion</div>", unsafe_allow_html=True)
+    pages = ["⌂ Home", "≡ Timeline", "✦ AI Assistant", "✓ Readiness Check", "◫ Myth vs Fact"]
     
-    # Hero Section
+    selected = st.radio(
+        "",
+        pages,
+        key="nav_selector",
+        index=pages.index(st.session_state.current_page),
+        label_visibility="collapsed"
+    )
+    st.session_state.current_page = selected
+
+actual_page = st.session_state.current_page.split(" ", 1)[1]
+
+if actual_page == "Home":
     st.markdown("""
-        <div class="hero-container">
-            <div class="hero-title">AI Powered Electoral Literacy for Every Citizen</div>
-            <div class="hero-subtitle">Reducing voter confusion, improving democratic access, and enabling trusted election guidance through one intelligent civic platform.</div>
-        </div>
-        <div style='display: flex; justify-content: center; gap: 2rem; margin-top: -1.5rem; margin-bottom: 1.5rem; color: #475569; font-size: 0.9rem; font-weight: 500; flex-wrap: wrap;'>
-            <span style='display: flex; align-items: center; gap: 0.4rem;'><span style='color: #10b981; font-size: 1rem;'>✓</span> 968M+ Eligible Voters</span>
-            <span style='display: flex; align-items: center; gap: 0.4rem;'><span style='color: #10b981; font-size: 1rem;'>✓</span> 1.2M+ Polling Stations</span>
-            <span style='display: flex; align-items: center; gap: 0.4rem;'><span style='color: #10b981; font-size: 1rem;'>✓</span> 1950 National Helpline</span>
-            <span style='display: flex; align-items: center; gap: 0.4rem;'><span style='color: #10b981; font-size: 1rem;'>✓</span> Official ECI Connected</span>
-        </div>
-        
-        <div style='display: flex; justify-content: center; gap: 0.75rem; margin-bottom: 2.5rem; flex-wrap: wrap;'>
-            <span style='background: #f8fafc; border: 1px solid #e2e8f0; color: #0f172a; padding: 0.35rem 0.85rem; border-radius: 6px; font-size: 0.75rem; font-weight: 500;'>🟢 AI Backend Verified</span>
-            <span style='background: #f8fafc; border: 1px solid #e2e8f0; color: #0f172a; padding: 0.35rem 0.85rem; border-radius: 6px; font-size: 0.75rem; font-weight: 500;'>🛡 Official Civic Sources</span>
-            <span style='background: #f8fafc; border: 1px solid #e2e8f0; color: #0f172a; padding: 0.35rem 0.85rem; border-radius: 6px; font-size: 0.75rem; font-weight: 500;'>⚡ Real-time Guidance Active</span>
-        </div>
-    """, unsafe_allow_html=True)
+<div class='home-hero-container'>
+<div class='hero-grid'></div>
+<div class='hero-bg-blob-1'></div>
+<div class='hero-bg-blob-2'></div>
+<h1 class="hero-title">Algorithmic clarity for<br><span class="gradient-text">democratic infrastructure.</span></h1>
+<p class="hero-sub">VoteMate AI brings cryptographic transparency to the electoral process. Instantly access verified guidance, sequence protocols, and personalized readiness compliance in real-time.</p>
+</div>
+""", unsafe_allow_html=True)
     
-    # Live Election Status Bar
-    st.markdown("""
-        <div style='background: #ffffff; padding: 1.2rem 1.5rem; border-radius: 12px; border-left: 4px solid #3b82f6; margin-bottom: 3rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;'>
-            <div style='display: flex; flex-direction: column;'>
-                <span style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;'>Upcoming Election</span>
-                <span style='color: #0f172a; font-weight: 700; font-size: 1.05rem;'>Bihar Assembly 2026</span>
-            </div>
-            <div style='display: flex; flex-direction: column;'>
-                <span style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;'>National Voter Helpline</span>
-                <span style='color: #0f172a; font-weight: 700; font-size: 1.05rem;'>📞 1950</span>
-            </div>
-            <div style='display: flex; flex-direction: column;'>
-                <span style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;'>Model Code Status</span>
-                <span style='color: #15803d; font-weight: 700; font-size: 1.05rem;'>🟢 Active During Elections</span>
-            </div>
-            <div style='display: flex; flex-direction: column;'>
-                <span style='color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;'>Official Source</span>
-                <span style='color: #0f172a; font-weight: 700; font-size: 1.05rem;'>Election Commission of India</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1.5, 1.5, 2.0])
     
-    # Metrics Section
-    st.markdown("### 📊 National Election Snapshot")
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Registered Voters", "968M+", "Largest Democracy")
-    m2.metric("Polling Booths", "1.2M+", "Widespread Access")
-    m3.metric("EVMs Deployed", "5.5M+", "Secured Tech")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
+    def navigate_to(page):
+        st.session_state.current_page = page
+        st.session_state.nav_selector = page
 
-    st.markdown("### ⚡ Quick Civic Actions")
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.link_button("Official Voter Portal", "https://voters.eci.gov.in/", use_container_width=True)
-    with c2:
-        st.link_button("Find Polling Booth", "https://electoralsearch.eci.gov.in/", use_container_width=True)
-    with c3:
-        st.link_button("National Voter Portal", "https://www.nvsp.in/", use_container_width=True)
-    with c4:
-        st.link_button("Election Commission", "https://eci.gov.in/", use_container_width=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Features Section
-    st.markdown("<div style='text-align: center; padding: 0.75rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1e40af; font-weight: 500; font-size: 0.95rem; margin-bottom: 2.5rem; max-width: 600px; margin-left: auto; margin-right: auto;'>Designed to bridge the information gap between citizens and the electoral system.</div>", unsafe_allow_html=True)
-    st.markdown("<h3 style='margin-bottom: 1.5rem;'>🌟 Platform Features</h3>", unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    
     with col1:
-        st.markdown("""
-            <div class="feature-card">
-                <div class="card-icon">📅</div>
-                <div class="card-title">Election Process Simplified</div>
-                <div class="card-desc">Understand how elections are conducted from the initial announcement to the final result declaration with our interactive timeline.</div>
-            </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("""
-            <div class="feature-card">
-                <div class="card-icon">🤖</div>
-                <div class="card-title">AI Powered Assistant</div>
-                <div class="card-desc">Ask your specific election doubts in plain language and receive instant, simple, and unbiased answers powered by Gemini AI.</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
+        st.button("Consult Engine", type="primary", on_click=navigate_to, args=("✦ AI Assistant",))
     with col2:
-        st.markdown("""
-            <div class="feature-card">
-                <div class="card-icon">🧾</div>
-                <div class="card-title">First Time Voter Guidance</div>
-                <div class="card-desc">Navigate the complexities of voting for the first time with a personalized, step-by-step readiness checklist.</div>
-            </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("""
-            <div class="feature-card">
-                <div class="card-icon">🛡️</div>
-                <div class="card-title">Myth vs Fact Verification</div>
-                <div class="card-desc">Clear up confusion about voter IDs, EVM security, eligibility criteria, and the polling process with verified facts.</div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.button("View Protocol", on_click=navigate_to, args=("≡ Timeline",))
 
-elif page == "📅 Election Timeline":
-    st.title("📅 Interactive Election Timeline")
-    st.markdown("<p style='color: #64748b; font-size: 1.05rem; margin-bottom: 2rem;'>Follow the democratic journey step-by-step from announcement to governance.</p>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 5rem;'></div>", unsafe_allow_html=True)
+    
+    st.markdown("<h3 style='font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-bottom: 2rem; letter-spacing: -0.03em;'>System Telemetry</h3>", unsafe_allow_html=True)
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.markdown("""
+<div class='metric-card' style='background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);'>
+<div class='shimmer'></div>
+<div style='position: absolute; right: -5px; bottom: -15px; font-size: 6rem; opacity: 0.03;'>👥</div>
+<div style='color: #3b82f6; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;'>Registered Base</div>
+<div style='font-size: 3.2rem; font-weight: 800; color: #0f172a; letter-spacing: -0.04em;'>968M+</div>
+<div style='font-size: 0.9rem; color: #10b981; font-weight: 800; margin-top: 10px; display: flex; align-items: center; gap: 8px;'><div style='width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px rgba(16,185,129,0.5);'></div> Verified Secure</div>
+</div>
+""", unsafe_allow_html=True)
+    with m2:
+        st.markdown("""
+<div class='metric-card' style='background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);'>
+<div class='shimmer'></div>
+<div style='position: absolute; right: -5px; bottom: -15px; font-size: 6rem; opacity: 0.03;'>🏛️</div>
+<div style='color: #8b5cf6; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;'>Active Booths</div>
+<div style='font-size: 3.2rem; font-weight: 800; color: #0f172a; letter-spacing: -0.04em;'>1.2M</div>
+<div style='font-size: 0.9rem; color: #10b981; font-weight: 800; margin-top: 10px; display: flex; align-items: center; gap: 8px;'><div style='width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px rgba(16,185,129,0.5);'></div> Operational</div>
+</div>
+""", unsafe_allow_html=True)
+    with m3:
+        st.markdown("""
+<div class='metric-card' style='background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);'>
+<div class='shimmer'></div>
+<div style='position: absolute; right: -5px; bottom: -15px; font-size: 6rem; opacity: 0.03;'>🔒</div>
+<div style='color: #f59e0b; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;'>Secured EVMs</div>
+<div style='font-size: 3.2rem; font-weight: 800; color: #0f172a; letter-spacing: -0.04em;'>5.5M</div>
+<div style='font-size: 0.9rem; color: #10b981; font-weight: 800; margin-top: 10px; display: flex; align-items: center; gap: 8px;'><div style='width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px rgba(16,185,129,0.5);'></div> Air-Gapped</div>
+</div>
+""", unsafe_allow_html=True)
+    
+    st.markdown("<div style='height: 3rem;'></div>", unsafe_allow_html=True)
+    st.markdown("<h3 style='font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-bottom: 2rem; letter-spacing: -0.03em;'>Core Architecture</h3>", unsafe_allow_html=True)
+    
+    f1, f2 = st.columns(2)
+    with f1:
+        st.markdown("""
+<div class="capability-card">
+<div style='display: flex; justify-content: space-between; align-items: flex-start;'>
+<div class="cap-number">01</div>
+<div style='font-size: 1.8rem; opacity: 0.9; background: #f8fafc; padding: 12px; border-radius: 14px; box-shadow: 0 8px 16px rgba(0,0,0,0.04);'>⏱️</div>
+</div>
+<div class="cap-title">Sequence Timeline</div>
+<div class="cap-desc">A structured, real-time overview of the democratic journey from initial constitutional announcement to the final algorithmic declaration of results.</div>
+</div>
+<div class="capability-card">
+<div style='display: flex; justify-content: space-between; align-items: flex-start;'>
+<div class="cap-number">02</div>
+<div style='font-size: 1.8rem; opacity: 0.9; background: #f8fafc; padding: 12px; border-radius: 14px; box-shadow: 0 8px 16px rgba(0,0,0,0.04);'>🧠</div>
+</div>
+<div class="cap-title">AI Consultation Engine</div>
+<div class="cap-desc">Direct complex inquiries regarding specific election protocols answered instantly with context-aware, verified civic intelligence.</div>
+</div>
+""", unsafe_allow_html=True)
+        
+    with f2:
+        st.markdown("""
+<div class="capability-card">
+<div style='display: flex; justify-content: space-between; align-items: flex-start;'>
+<div class="cap-number">03</div>
+<div style='font-size: 1.8rem; opacity: 0.9; background: #f8fafc; padding: 12px; border-radius: 14px; box-shadow: 0 8px 16px rgba(0,0,0,0.04);'>✓</div>
+</div>
+<div class="cap-title">Compliance Analyzer</div>
+<div class="cap-desc">A bespoke algorithmic assessment generating a personalized, exportable action plan to ensure full legal compliance and preparedness.</div>
+</div>
+<div class="capability-card">
+<div style='display: flex; justify-content: space-between; align-items: flex-start;'>
+<div class="cap-number">04</div>
+<div style='font-size: 1.8rem; opacity: 0.9; background: #f8fafc; padding: 12px; border-radius: 14px; box-shadow: 0 8px 16px rgba(0,0,0,0.04);'>🛡️</div>
+</div>
+<div class="cap-title">Integrity Verification</div>
+<div class="cap-desc">Deconstruction of prevalent systemic vulnerabilities and myths through authoritative, protocol-backed factual cryptographic corrections.</div>
+</div>
+""", unsafe_allow_html=True)
+
+elif actual_page == "Timeline":
+    st.markdown("""
+<div style='margin-bottom: 2.5rem;'>
+<h1 style='font-size: 3rem; font-weight: 800; letter-spacing: -0.04em; color: #0f172a; margin-bottom: 0.75rem;'>Protocol Sequence</h1>
+<p style='font-size: 1.25rem; color: #475569; max-width: 800px;'>A chronological breakdown of the democratic infrastructure protocol.</p>
+</div>
+""", unsafe_allow_html=True)
 
     steps = [
-        ("📢 1. Election Announcement", "The Election Commission officially announces election dates, phases, and the Model Code of Conduct comes into effect immediately."),
-        ("📝 2. Voter Registration", "Citizens verify their names in the electoral roll, update their details, or register as new voters before the deadline."),
-        ("👤 3. Candidate Nomination", "Aspiring candidates submit their official nomination papers, affidavits, and disclosures for scrutiny."),
-        ("🎤 4. Campaign Period", "Political parties and candidates actively campaign, present their manifestos, and engage with voters."),
-        ("🗳️ 5. Polling Day", "Eligible citizens cast their votes securely at designated polling booths using EVMs."),
-        ("📊 6. Vote Counting", "All votes are counted systematically under strict supervision and high security."),
-        ("🏆 7. Result Declaration", "Final winners and representatives are officially declared, paving the way for government formation.")
+        ("01", "Official Announcement", "The Election Commission officially announces election dates, phases, and the Model Code of Conduct comes into effect immediately. All administrative machinery shifts under ECI purview."),
+        ("02", "Voter Registration", "Citizens verify their names in the electoral roll, update their biometric/demographic details, or register as new voters before the strict constitutional deadline."),
+        ("03", "Candidate Nomination", "Aspiring candidates submit their official nomination papers, financial affidavits, and criminal disclosures for deep legal scrutiny."),
+        ("04", "Campaign Phase", "Political parties and candidates actively campaign, present their manifestos, and engage with voters while adhering strictly to expenditure caps."),
+        ("05", "Polling Day", "Eligible citizens cast their votes securely at designated polling booths using air-gapped Electronic Voting Machines (EVMs) with VVPAT verification."),
+        ("06", "Secure Counting", "All EVMs are transported under multi-tier security to strong rooms. Votes are counted systematically under strict CCTV surveillance and micro-observer supervision."),
+        ("07", "Results Declaration", "Final winners and representatives are officially declared by the Returning Officer, formally paving the way for government formation and swearing-in.")
     ]
 
-    for title, desc in steps:
-        with st.expander(title, expanded=False):
-            st.info(desc, icon="ℹ️")
+    timeline_html = "<div class='timeline-container'><div class='timeline-line'></div>"
+    for i, (num, title, desc) in enumerate(steps):
+        delay = i * 0.1
+        timeline_html += f"""
+<div class='timeline-item' style='animation-delay: {delay}s;'>
+<div class='timeline-dot'></div>
+<details class='custom-expander'>
+<summary>
+<div class='summary-content'>
+<span class='step-num'>{num}</span>
+<span class='step-title'>{title}</span>
+</div>
+<div class='expand-icon'>▼</div>
+</summary>
+<div class='details-content'>
+{desc}
+</div>
+</details>
+</div>
+"""
+    timeline_html += "</div>"
+    st.markdown(timeline_html, unsafe_allow_html=True)
 
-elif page == "🤖 AI Election Assistant":
-    st.title("🤖 Ask VoteMate AI")
-    st.markdown("<p style='color: #64748b; font-size: 1.05rem; margin-bottom: 2.5rem;'>Your intelligent civic assistant. Ask any question regarding the electoral process, rules, or your rights.</p>", unsafe_allow_html=True)
-    
+elif actual_page == "AI Assistant":
     st.markdown("""
-        <div style='background: #ffffff; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 2.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>
-            <h4 style='margin-top: 0; color: #0f172a; font-size: 1rem; margin-bottom: 0.75rem;'>💡 Suggestion Prompts:</h4>
-            <ul style='color: #475569; margin-bottom: 0; font-size: 0.95rem;'>
-                <li>What if I lose my voter ID before election day?</li>
-                <li>Can I vote without EPIC card?</li>
-                <li>How is EVM tampering prevented?</li>
-                <li>How do I find my polling booth?</li>
-            </ul>
-        </div>
-    """, unsafe_allow_html=True)
+<div style='margin-bottom: 2.5rem;'>
+<h1 style='font-size: 3rem; font-weight: 800; letter-spacing: -0.04em; color: #0f172a; margin-bottom: 0.75rem;'>Civic Engine</h1>
+<p style='font-size: 1.25rem; color: #475569; max-width: 800px;'>Consult the intelligence matrix regarding protocols, security, or booth infrastructure.</p>
+</div>
+""", unsafe_allow_html=True)
     
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        question = st.text_area("💬 Type your election-related question below:", value=st.session_state.user_question, height=100, placeholder="E.g., What are the timings for polling booths?")
-        if question != st.session_state.user_question:
-            st.session_state.user_question = question
-    with col2:
-        st.markdown("<div style='margin-top: 2.2rem; text-align: center; color: #64748b; font-size: 0.85rem; font-weight: 500;'>Or Speak 🎙️</div>", unsafe_allow_html=True)
-        audio = mic_recorder(start_prompt="🎙️ Start recording", stop_prompt="🛑 Stop recording", key='STT')
+    st.markdown("<p style='font-size: 0.85rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.25rem;'>Quick Inquiries</p>", unsafe_allow_html=True)
     
-    if audio:
-        try:
-            recognizer = sr.Recognizer()
-            with sr.AudioFile(io.BytesIO(audio['bytes'])) as source:
-                audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data)
-            st.session_state.user_question = text
-            st.rerun()
-        except Exception:
-            st.warning("⚠️ Audio recognition was interrupted. Please try again or type your question.")
-
-    if st.button("✨ Generate Answer"):
+    p1, p2, p3, p4 = st.columns(4)
+    def set_prompt(text): st.session_state.user_question = text
+    
+    with p1: 
+        st.markdown("<div class='pill-button'>", unsafe_allow_html=True)
+        st.button("Lost EPIC Card", on_click=set_prompt, args=("I lost my EPIC card. How can I vote?",), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with p2: 
+        st.markdown("<div class='pill-button'>", unsafe_allow_html=True)
+        st.button("ID Proofs", on_click=set_prompt, args=("What alternative ID proofs are accepted at the booth?",), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with p3: 
+        st.markdown("<div class='pill-button'>", unsafe_allow_html=True)
+        st.button("EVM Security", on_click=set_prompt, args=("Explain how EVMs are secured against hacking.",), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with p4: 
+        st.markdown("<div class='pill-button'>", unsafe_allow_html=True)
+        st.button("Booth Location", on_click=set_prompt, args=("How do I find the exact location of my polling booth?",), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div style='height: 2rem;'></div>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 0.85rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.5rem;'>Input Terminal</p>", unsafe_allow_html=True)
+    
+    question = st.text_input("Query Input", value=st.session_state.user_question, placeholder="Ask anything about the electoral process...", label_visibility="collapsed")
+    if question != st.session_state.user_question:
+        st.session_state.user_question = question
+        
+    st.markdown("<div style='height: 1.5rem;'></div>", unsafe_allow_html=True)
+    col_b1, col_b2, col_b3 = st.columns([1, 1.5, 1])
+    with col_b2:
+        generate_clicked = st.button("Submit Query", type="primary", use_container_width=True)
+    
+    if generate_clicked:
         if st.session_state.user_question:
-            with st.spinner("Analyzing Election Guidelines..."):
-                progress_bar = st.progress(0)
-                for percent_complete in range(100):
-                    time.sleep(0.015)
-                    progress_bar.progress(percent_complete + 1)
-                progress_bar.empty()
+            with st.spinner("Processing intelligence query..."):
                 answer_text = get_ai_answer(st.session_state.user_question)
-                
-                st.markdown("""
-                    <style>
-                    .stAlert {
-                        background: #ffffff !important;
-                        border: 1px solid #e2e8f0 !important;
-                        border-left: 4px solid #3b82f6 !important;
-                        border-radius: 8px !important;
-                        padding: 1.5rem !important;
-                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
-                        animation: fadeIn 0.4s ease-out !important;
-                    }
-                    .stAlert h3 {
-                        color: #0f172a !important;
-                        margin-bottom: 0.2rem !important;
-                        font-size: 1.3rem !important;
-                        font-weight: 700 !important;
-                        border-bottom: none !important;
-                    }
-                    .stAlert strong {
-                        color: #1e40af !important;
-                    }
-                    .stAlert hr {
-                        border-color: #e2e8f0 !important;
-                    }
-                    </style>
-                """, unsafe_allow_html=True)
-                st.info(f"""### ✅ Verified Civic AI Response
-<div style='font-size: 0.8rem; color: #64748b; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0; font-weight: 500;'>🛡️ ECI Verified &nbsp;•&nbsp; 👤 Citizen Safe &nbsp;•&nbsp; 🗳️ Election Ready</div>
-
-**🔹 Situation Assessment**  
-Reviewing your query against official Indian electoral guidelines.
-
-**🔹 Official Civic Guidance**  
-{answer_text}
-
----
-<span style='color: #15803d; font-weight: 600; font-size: 0.95rem;'>🔹 Recommended Citizen Action</span>  
-Citizens may additionally verify constituency-specific instructions via ECI, NVSP, or Helpline 1950.
-""")
+                st.markdown(f"""
+<div class='chat-response'>
+<div class='verified-badge'>
+<div style='width: 6px; height: 6px; background: #4338ca; border-radius: 50%;'></div>
+Verified Response
+</div>
+<div style='font-size: 1.15rem; line-height: 1.8; color: #0f172a; font-weight: 500;'>
+{answer_text.replace('\n', '<br>')}
+</div>
+</div>
+""", unsafe_allow_html=True)
         else:
-            st.warning("⚠️ Please type or speak a question first.")
+            st.error("Please provide a query.")
 
-elif page == "🧾 First Time Voter Wizard":
-    st.title("🧾 First Time Voter Readiness Checker")
-    st.markdown("<p style='color: #64748b; font-size: 1.05rem; margin-bottom: 2rem;'>Complete this quick wizard to generate your personalized action plan for election day.</p>", unsafe_allow_html=True)
+elif actual_page == "Readiness Check":
+    st.markdown("""
+<div style='margin-bottom: 2.5rem;'>
+<h1 style='font-size: 3rem; font-weight: 800; letter-spacing: -0.04em; color: #0f172a; margin-bottom: 0.75rem;'>Compliance Analyzer</h1>
+<p style='font-size: 1.25rem; color: #475569; max-width: 800px;'>Evaluate personal electoral readiness to generate an operational checklist.</p>
+</div>
+""", unsafe_allow_html=True)
 
     with st.container():
-        st.markdown("<div style='background: #ffffff; padding: 2rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);'>", unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2, gap="large")
         with col1:
-            st.markdown("<p style='font-size: 0.85rem; font-weight: 500; color: #64748b; margin-bottom: 0.2rem;'>Age</p>", unsafe_allow_html=True)
-            age = st.number_input("Age", min_value=15, max_value=120, value=18, label_visibility="collapsed")
-            st.markdown("<p style='font-size: 0.85rem; font-weight: 500; color: #64748b; margin-bottom: 0.2rem; margin-top: 1rem;'>Registration Status</p>", unsafe_allow_html=True)
-            registered = st.selectbox("Registration", ["Yes", "No"], label_visibility="collapsed")
+            st.markdown("<p style='font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.25rem; color: #64748b;'>Age Qualification</p>", unsafe_allow_html=True)
+            age = st.number_input("Age", min_value=15, max_value=120, key='rc_age', label_visibility="collapsed")
+            st.markdown("<div style='height: 2.5rem;'></div><p style='font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.25rem; color: #64748b;'>Roll Registration Status</p>", unsafe_allow_html=True)
+            registered = st.selectbox("Registration", ["Registered", "Not Registered"], key='rc_reg', label_visibility="collapsed")
         with col2:
-            st.markdown("<p style='font-size: 0.85rem; font-weight: 500; color: #64748b; margin-bottom: 0.2rem;'>Voter ID (EPIC)</p>", unsafe_allow_html=True)
-            voterid = st.selectbox("Voter ID", ["Yes", "No"], label_visibility="collapsed")
-            st.markdown("<p style='font-size: 0.85rem; font-weight: 500; color: #64748b; margin-bottom: 0.2rem; margin-top: 1rem;'>Polling Booth Details</p>", unsafe_allow_html=True)
-            booth = st.selectbox("Booth Details", ["Yes", "No"], label_visibility="collapsed")
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<p style='font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.25rem; color: #64748b;'>EPIC Credential</p>", unsafe_allow_html=True)
+            voterid = st.selectbox("Voter ID", ["Possessed", "Not Possessed"], key='rc_vid', label_visibility="collapsed")
+            st.markdown("<div style='height: 2.5rem;'></div><p style='font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.25rem; color: #64748b;'>Booth Designation</p>", unsafe_allow_html=True)
+            booth = st.selectbox("Booth Details", ["Known", "Unknown"], key='rc_booth', label_visibility="collapsed")
         
-    st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 3rem;'></div>", unsafe_allow_html=True)
+        col_b1, col_b2, col_b3 = st.columns([1, 1.5, 1])
+        with col_b2:
+            generate_checklist = st.button("Execute Analysis", type="primary", use_container_width=True)
 
-    if st.button("🚀 Generate My Voting Checklist"):
-        st.subheader("🎯 Your Personalized Action Plan")
-
+    if generate_checklist:
+        st.markdown("<div style='height: 1.5rem;'></div>", unsafe_allow_html=True)
         if age < 18:
-            st.error("🚫 **Not Eligible Yet:** You must be at least 18 years old to vote. Stay informed and get ready for the future!")
+            st.markdown("""
+<div class='editorial-panel' style='border: 1px solid rgba(239,68,68,0.3); background: #fef2f2; padding: 2.5rem;'>
+<h3 style='color: #ef4444; font-size: 1.4rem; font-weight: 800; margin-bottom: 0.75rem;'>Status: Ineligible</h3>
+<p style='font-size: 1.1rem; color: #0f172a; margin: 0;'>Minimum constitutional age requirement (18) is not met.</p>
+</div>
+""", unsafe_allow_html=True)
         else:
-            st.balloons()
-            st.toast("Checklist generated successfully!", icon="✅")
-            
             todos = []
             dones = []
+            score = 25
             
-            if registered == "No":
-                todos.append("Register your name in the electoral roll via the NVSP portal or Voter Helpline App.")
+            if registered == "Registered":
+                dones.append("Electoral roll registration confirmed in database.")
+                score += 25
             else:
-                dones.append("Name is registered in the electoral roll.")
+                todos.append("Complete electoral roll registration before polling.")
                 
-            if voterid == "No":
-                todos.append("Apply for a Voter ID or download the e-EPIC. Alternatively, prepare an approved substitute ID (like Aadhaar, PAN, Passport).")
+            if voterid == "Possessed":
+                dones.append("EPIC credential / Valid ID secured.")
+                score += 25
             else:
-                dones.append("Voter ID is ready.")
+                todos.append("Carry alternate approved ID.")
                 
-            if booth == "No":
-                todos.append("Check your polling booth location online before election day to avoid last-minute confusion.")
+            if booth == "Known":
+                dones.append("Polling infrastructure location verified.")
+                score += 25
             else:
-                dones.append("Polling booth location is known.")
+                todos.append("Verify polling booth through NVSP/1950.")
 
-            # Display Todos
-            if todos:
-                st.warning("### ⚠️ Action Required:")
-                for item in todos:
-                    st.markdown(f"- {item}")
+            score_color = "success" if score == 100 else ("warning" if score >= 50 else "danger")
+
+            c1, c2 = st.columns([1, 2])
+            with c1:
+                st.markdown(f"""
+<div class='editorial-panel' style='text-align: center; padding: 3.5rem 2rem;'>
+<p style='font-size: 0.95rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 2rem;'>Readiness Index</p>
+<div class='score-circle {score_color}' style='width: 120px; height: 120px; font-size: 2.5rem; border-width: 6px;'>{score}%</div>
+<div class='compliance-bar' style='margin-top: 2rem;'>
+<div class='compliance-fill' style='width: {score}%; background: {"#10b981" if score == 100 else ("#f59e0b" if score >= 50 else "#ef4444")};'></div>
+</div>
+</div>
+""", unsafe_allow_html=True)
             
-            # Display General Success
-            st.success("### ✅ Day-of-Election Checklist:")
-            if dones:
-                for item in dones:
-                    st.markdown(f"- {item} (Completed)")
-            st.markdown("- Carry your valid ID proof to the polling station.")
-            st.markdown("- Reach the polling booth during the official voting hours (usually 7 AM - 6 PM).")
-            st.markdown("- Follow EVM instructions carefully and verify your vote via VVPAT.")
-
-            st.markdown("---")
-
-            # PDF Generation
-            def create_pdf():
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_auto_page_break(auto=True, margin=15)
-                pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, "VoteMate AI - Personalized Readiness Checklist", ln=True, align="C")
-                pdf.set_font("Arial", size=12)
-                pdf.ln(10)
-                pdf.cell(0, 10, f"Age: {age}", ln=True)
-                pdf.cell(0, 10, f"Registered: {registered}", ln=True)
-                pdf.cell(0, 10, f"Voter ID: {voterid}", ln=True)
-                pdf.cell(0, 10, f"Polling Booth Known: {booth}", ln=True)
-                pdf.ln(10)
-                pdf.set_font("Arial", 'B', 14)
-                pdf.cell(0, 10, "Action Required:", ln=True)
-                pdf.set_font("Arial", size=12)
-                if todos:
-                    for t in todos:
-                        t_clean = t.encode('ascii', 'ignore').decode('ascii')
-                        pdf.set_x(10)
-                        pdf.multi_cell(190, 10, f"- {t_clean}")
+            with c2:
+                st.markdown("<div class='editorial-panel' style='padding: 2.5rem;'>", unsafe_allow_html=True)
+                if score == 100:
+                    st.markdown("""
+<div style='background: #ecfdf5; border: 1px solid rgba(16,185,129,0.2); padding: 2rem; border-radius: 16px; margin-bottom: 0.5rem;'>
+<p style='font-size: 1.25rem; font-weight: 800; color: #059669; margin: 0;'>✓ Verified Readiness Achieved</p>
+<p style='font-size: 1.1rem; color: #475569; margin: 0; margin-top: 8px;'>All compliance protocols met successfully.</p>
+</div>
+""", unsafe_allow_html=True)
                 else:
-                    pdf.cell(0, 10, "None", ln=True)
-                pdf.ln(10)
-                pdf.set_font("Arial", 'B', 14)
-                pdf.cell(0, 10, "Completed / Checklist:", ln=True)
-                pdf.set_font("Arial", size=12)
-                for d in dones:
-                    d_clean = d.encode('ascii', 'ignore').decode('ascii')
-                    pdf.set_x(10)
-                    pdf.multi_cell(190, 10, f"- {d_clean} (Completed)")
-                pdf.set_x(10)
-                pdf.multi_cell(190, 10, "- Carry your valid ID proof to the polling station.")
-                pdf.set_x(10)
-                pdf.multi_cell(190, 10, "- Reach the polling booth during the official voting hours (usually 7 AM - 6 PM).")
-                pdf.set_x(10)
-                pdf.multi_cell(190, 10, "- Follow EVM instructions carefully and verify your vote via VVPAT.")
-                return bytes(pdf.output(dest='S'))
+                    if todos:
+                        st.markdown("<p style='font-size: 0.9rem; font-weight: 800; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1.25rem;'>Pending Actions</p>", unsafe_allow_html=True)
+                        for item in todos:
+                            st.markdown(f"""
+<div style='display: flex; gap: 12px; margin-bottom: 1.25rem; align-items: flex-start;'>
+<div style='color: #ef4444; font-weight: 800; font-size: 1.2rem;'>!</div>
+<div style='color: #0f172a; font-size: 1.15rem; font-weight: 600;'>{item}</div>
+</div>
+""", unsafe_allow_html=True)
+                        st.markdown("<div style='height: 1px; background: rgba(0,0,0,0.05); margin: 2rem 0;'></div>", unsafe_allow_html=True)
+                    
+                    if dones:
+                        st.markdown("<p style='font-size: 0.9rem; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1.25rem;'>Verified Systems</p>", unsafe_allow_html=True)
+                        for item in dones:
+                            st.markdown(f"""
+<div style='display: flex; gap: 12px; margin-bottom: 1.25rem; align-items: flex-start;'>
+<div style='color: #10b981; font-weight: 800; font-size: 1.2rem;'>✓</div>
+<div style='color: #475569; font-size: 1.15rem; font-weight: 500;'>{item}</div>
+</div>
+""", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
             try:
                 pdf_data = create_pdf()
-                st.download_button(
-                    label="📥 Download My Checklist PDF",
-                    data=pdf_data,
-                    file_name="VoteMate_Checklist.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-                st.markdown("""
-                    <div style='background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1.5rem; text-align: center; margin-top: 2rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05);'>
-                        <h4 style='color: #166534; margin: 0 0 0.5rem 0; font-size: 1.15rem;'>🎉 You are now election-day prepared.</h4>
-                        <p style='color: #15803d; margin: 0; font-size: 1rem; font-weight: 500;'>Vote confidently. Vote responsibly. Strengthen democracy.</p>
-                    </div>
-                """, unsafe_allow_html=True)
-            except Exception:
-                st.warning("⚠️ Checklist PDF generation is temporarily unavailable. Please refer to your personalized plan above.")
+                col_d1, col_d2, col_d3 = st.columns([1, 1.5, 1])
+                with col_d2:
+                    st.download_button("Export Formal PDF Report", data=pdf_data, file_name="VoteMate_Compliance_Report.pdf", mime="application/pdf", use_container_width=True)
+            except Exception: pass
 
-elif page == "⚖️ Myth vs Fact":
-    st.title("⚖️ Election Myth vs Fact")
-    st.markdown("<p style='color: #64748b; font-size: 1.05rem; margin-bottom: 2rem;'>Combat misinformation. Get the verified facts about the electoral process.</p>", unsafe_allow_html=True)
+elif actual_page == "Myth vs Fact":
+    st.markdown("""
+<div style='margin-bottom: 2.5rem;'>
+<h1 style='font-size: 3rem; font-weight: 800; letter-spacing: -0.04em; color: #0f172a; margin-bottom: 0.75rem;'>Information Integrity</h1>
+<p style='font-size: 1.25rem; color: #475569; max-width: 800px;'>Cryptographic clarification of systemic vulnerabilities and misconceptions.</p>
+</div>
+""", unsafe_allow_html=True)
 
     myths = [
-        ("🤔 Myth: I cannot vote if I lost my voter slip.", "✅ **Fact:** You can still vote! The voter slip is just for convenience. As long as your name is on the electoral roll, you can vote by showing an approved photo ID card."),
-        ("🤔 Myth: Having an Aadhaar card is enough to vote.", "✅ **Fact:** An Aadhaar card is an accepted proof of identity, but **you must be registered in the electoral roll** of your constituency to be allowed to vote."),
-        ("🤔 Myth: EVMs can be easily hacked via WiFi or Bluetooth.", "✅ **Fact:** EVMs are standalone machines. They are not connected to any network, internet, WiFi, or Bluetooth, making remote hacking technically impossible. They are secured under strict Election Commission protocols."),
-        ("🤔 Myth: Voting is legally compulsory in India.", "✅ **Fact:** Voting is a fundamental civic right and duty, but it is **not legally compulsory**. There is no penalty for not voting."),
-        ("🤔 Myth: If I am not in my home city, I can vote online.", "✅ **Fact:** Currently, there is no online voting for general citizens. You must vote in person at your designated polling booth. (Service voters have specific postal ballot provisions).")
+        ("I cannot vote if I lost my voter slip.", "System accepts vote. The voter slip is solely for operational convenience. As long as your record exists in the electoral roll, any approved photo ID card suffices for verification."),
+        ("Having an Aadhaar card guarantees my right to vote.", "Aadhaar is accepted for identity verification, but localized electoral roll registration for your specific constituency is the absolute fundamental prerequisite."),
+        ("EVMs can be intercepted via WiFi or Bluetooth.", "EVMs are strictly air-gapped standalone units. They lack any network hardware components, rendering remote interception technically impossible."),
+        ("Voting is legally compulsory in India.", "Voting is a fundamental civic duty, but it remains strictly voluntary under constitutional law. There are zero penal consequences for abstention."),
+        ("If I am out of station, I can vote digitally.", "Digital voting is not implemented for the general populace. In-person verification at designated booths is mandatory.")
     ]
 
-    for q, a in myths:
-        with st.expander(q, expanded=False):
-            st.markdown(f"<div style='padding: 0.5rem 0; color: #334155;'>{a}</div>", unsafe_allow_html=True)
-
-st.markdown("<br><hr style='border-color: #e2e8f0; margin-top: 3rem;'>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.8rem; font-weight: 500; padding-bottom: 2rem;'>Built for Electoral Literacy & Democratic Inclusion | Civic Intelligence Hackathon Prototype</p>", unsafe_allow_html=True)
+    for myth, fact in myths:
+        st.markdown(f"""
+<div class='split-container'>
+<div class='split-top'>
+<div style='display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;'>
+<div style='width: 28px; height: 28px; border-radius: 8px; background: #fef2f2; border: 1px solid rgba(239,68,68,0.2); color: #ef4444; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem;'>✗</div>
+<div style='color: #ef4444; margin: 0; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;'>Myth</div>
+</div>
+<p style='font-size: 1.2rem; color: #0f172a; margin: 0; font-weight: 700;'>"{myth}"</p>
+</div>
+<div class='split-bottom'>
+<div style='display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;'>
+<div style='width: 28px; height: 28px; border-radius: 8px; background: #ecfdf5; border: 1px solid rgba(16,185,129,0.2); color: #10b981; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem;'>✓</div>
+<div style='color: #10b981; margin: 0; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;'>Fact</div>
+</div>
+<p style='font-size: 1.15rem; color: #475569; margin: 0; line-height: 1.8;'>{fact}</p>
+</div>
+</div>
+""", unsafe_allow_html=True)
