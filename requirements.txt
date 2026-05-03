@@ -4,3 +4,6 @@ google-api-core
 protobuf
 pandas
 numpy
+streamlit-mic-recorder
+SpeechRecognition
+fpdf
